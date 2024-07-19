@@ -719,25 +719,17 @@ function Fetch-Dependencies {
   }
 }
 
+
 function Get-PinnedToolchainTool() {
-  if (Test-Path "$BinaryCache\toolchains\${PinnedToolchain}\LocalApp\Programs\Swift\Toolchains\5.10.1+Asserts\usr\bin") {
-    return "$BinaryCache\toolchains\${PinnedToolchain}\LocalApp\Programs\Swift\Toolchains\5.10.1+Asserts\usr\bin"
-  }
-  return "$BinaryCache\toolchains\${PinnedToolchain}\Library\Developer\Toolchains\unknown-Asserts-development.xctoolchain\usr\bin"
+  return "S:\Program Files\Swift\Toolchains\0.0.0+Asserts\usr\bin"
 }
 
 function Get-PinnedToolchainSDK() {
-  if (Test-Path "$BinaryCache\toolchains\${PinnedToolchain}\LocalApp\Programs\Swift\Platforms\5.10.1\Windows.platform\Developer\SDKs\Windows.sdk") {
-    return "$BinaryCache\toolchains\${PinnedToolchain}\LocalApp\Programs\Swift\Platforms\5.10.1\Windows.platform\Developer\SDKs\Windows.sdk"
-  }
-  return "$BinaryCache\toolchains\${PinnedToolchain}\Library\Developer\Platforms\Windows.platform\Developer\SDKs\Windows.sdk"
+  return "S:\Program Files\Swift\Platforms\Windows.platform\Developer\SDKs\Windows.sdk"
 }
 
 function Get-PinnedToolchainRuntime() {
-  if (Test-Path "$BinaryCache\toolchains\${PinnedToolchain}\LocalApp\Programs\Swift\Runtimes\5.10.1\usr\bin\swiftCore.dll") {
-    return "$BinaryCache\toolchains\${PinnedToolchain}\LocalApp\Programs\Swift\Runtimes\5.10.1\usr\bin"
-  }
-  return "$BinaryCache\toolchains\${PinnedToolchain}\PFiles64\Swift\runtime-development\usr\bin"
+  return "S:\Program Files\Swift\Runtimes\0.0.0\usr\bin"
 }
 
 function Get-PinnedToolchainVersion() {
@@ -1340,6 +1332,10 @@ function Build-Compilers() {
         CLANG_TABLEGEN = (Join-Path -Path $BuildTools -ChildPath "clang-tblgen.exe");
         CLANG_TIDY_CONFUSABLE_CHARS_GEN = (Join-Path -Path $BuildTools -ChildPath "clang-tidy-confusable-chars-gen.exe");
         CMAKE_Swift_FLAGS = $SwiftFlags;
+        CMAKE_C_COMPILER_LAUNCHER = "ccache";
+        CMAKE_CXX_COMPILER_LAUNCHER = "ccache";
+        # Why is this not set automatically on Windows?
+        CMAKE_SHARED_LIBRARY_SUFFIX = ".dll";
         LLDB_PYTHON_EXE_RELATIVE_PATH = "python.exe";
         LLDB_PYTHON_EXT_SUFFIX = ".pyd";
         LLDB_PYTHON_RELATIVE_PATH = "lib/site-packages";
