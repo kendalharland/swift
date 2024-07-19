@@ -110,7 +110,7 @@ param(
   [string] $SwiftDebugFormat = "dwarf",
   [string] $AndroidAPILevel = 28,
   [string[]] $AndroidSDKs = @(),
-  [string[]] $WindowsSDKs = @("X64","X86","Arm64"),
+  [string[]] $WindowsSDKs = @("X64"),
   [string] $ProductVersion = "0.0.0",
   [string] $PinnedBuild = "",
   [string] $PinnedSHA256 = "",
