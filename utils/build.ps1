@@ -1341,6 +1341,22 @@ function Build-Compilers() {
         LLDB_PYTHON_RELATIVE_PATH = "lib/site-packages";
         LLDB_TABLEGEN = (Join-Path -Path $BuildTools -ChildPath "lldb-tblgen.exe");
         LLVM_CONFIG_PATH = (Join-Path -Path $BuildTools -ChildPath "llvm-config.exe");
+        # We need clang because some swift targets depend on clang-resource-headers 
+        LLVM_ENABLE_PROJECTS = "clang;lldb;lld";
+        # Unset LLVM_DISTRIBUTION_COMPONENTS to avoid building a bunch of things we don't need for testing.
+        # This change shouldn't be sent upstream and is only useful during test bringup and debugging.
+        LLVM_DISTRIBUTION_COMPONENTS = "";
+        # Unit tests link against this library and can't resolve symbols if this is unset.
+        # This feels like the wrong way to fix this and should not be sent upstream. Consider
+        # adding a pragma in each source file that needs this.
+        LLVM_UNITTEST_LINK_FLAGS = "S:\Program Files\Swift\Platforms\Windows.platform\Developer\SDKs\Windows.sdk\usr\lib\swift\windows\x86_64\swiftCore.lib";
+        LLVM_ENABLE_LIBEDIT = "NO";
+        # Enable lld so we can use it at link time. For some reason MSVC's link.exe can't resolve system libs...
+        LLVM_ENABLE_LLD = "YES";
+        # If yes (default) then llvm-project\lldb\unittests\SymbolFile\PDB\SymbolFilePDBTests.cpp is built and fails
+        # to compile. It must be broken on all windows x64 builds, given that LLVM CI doens't inlcude that platform
+        # and the DIA SDK is a windows-only feature.
+        LLVM_ENABLE_DIA_SDK = "OFF";
         LLVM_EXTERNAL_SWIFT_SOURCE_DIR = "$SourceCache\swift";
         LLVM_NATIVE_TOOL_DIR = $BuildTools;
         LLVM_TABLEGEN = (Join-Path $BuildTools -ChildPath "llvm-tblgen.exe");
