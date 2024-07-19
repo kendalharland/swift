@@ -2315,165 +2315,165 @@ function Stage-BuildArtifacts($Arch) {
 }
 
 #-------------------------------------------------------------------
-try {
-
-if (-not $SkipBuild) {
-  Fetch-Dependencies
-}
-
-if (-not $SkipBuild) {
-  Invoke-BuildStep Build-CMark $BuildArch
-  Invoke-BuildStep Build-BuildTools $BuildArch
-  if ($IsCrossCompiling) {
-    Invoke-BuildStep Build-Compilers -Build $BuildArch
-  }
-
-  Invoke-BuildStep Build-CMark $HostArch
-  Invoke-BuildStep Build-Compilers $HostArch
-}
-
-if ($Clean) {
-  10..27 | % { Remove-Item -Force -Recurse "$BinaryCache\$_" -ErrorAction Ignore }
-  foreach ($Arch in $WindowsSDKArchs) {
-    0..3 | % { Remove-Item -Force -Recurse "$BinaryCache\$($Arch.BuildID + $_)" -ErrorAction Ignore }
-  }
-}
-
-if (-not $SkipBuild) {
-  foreach ($Arch in $WindowsSDKArchs) {
-    Invoke-BuildStep Build-ZLib Windows $Arch
-    Invoke-BuildStep Build-XML2 Windows $Arch
-    Invoke-BuildStep Build-CURL Windows $Arch
-    Invoke-BuildStep Build-ICU Windows $Arch
-    Invoke-BuildStep Build-LLVM Windows $Arch
-
-    # Build platform: SDK, Redist and XCTest
-    Invoke-BuildStep Build-Runtime Windows $Arch
-    Invoke-BuildStep Build-Dispatch Windows $Arch
-    Invoke-BuildStep Build-Foundation Windows $Arch
-    Invoke-BuildStep Build-XCTest Windows $Arch
-  }
-
-   foreach ($Arch in $AndroidSDKArchs) {
-     Invoke-BuildStep Build-ZLib Android $Arch
-     Invoke-BuildStep Build-XML2 Android $Arch
-     Invoke-BuildStep Build-CURL Android $Arch
-     Invoke-BuildStep Build-ICU Android $Arch
-     Invoke-BuildStep Build-LLVM Android $Arch
-
-     # Build platform: SDK, Redist and XCTest
-     Invoke-BuildStep Build-Runtime Android $Arch
-     Invoke-BuildStep Build-Dispatch Android $Arch
-     Invoke-BuildStep Build-Foundation Android $Arch
-     Invoke-BuildStep Build-XCTest Android $Arch
-   }
-}
-
-if (-not $ToBatch) {
-  if ($HostArch -in $WindowsSDKArchs) {
-    $RuntimeInstallRoot = [IO.Path]::Combine((Get-InstallDir $HostArch), "Runtimes", $ProductVersion)
-
-    Remove-Item -Force -Recurse $RuntimeInstallRoot -ErrorAction Ignore
-    Copy-Directory "$($HostArch.SDKInstallRoot)\usr\bin" "$RuntimeInstallRoot\usr"
-  }
-
-  Remove-Item -Force -Recurse ([IO.Path]::Combine((Get-InstallDir $HostArch), "Platforms")) -ErrorAction Ignore
-  foreach ($Arch in $WindowsSDKArchs) {
-    Install-Platform Windows $Arch
-  }
-
-  foreach ($Arch in $AndroidSDKArchs) {
-    Install-Platform Android $Arch
-  }
-}
-
-if (-not $SkipBuild) {
-  Invoke-BuildStep Build-SQLite $HostArch
-  Invoke-BuildStep Build-System $HostArch
-  Invoke-BuildStep Build-ToolsSupportCore $HostArch
-  Invoke-BuildStep Build-LLBuild $HostArch
-  Invoke-BuildStep Build-Yams $HostArch
-  Invoke-BuildStep Build-ArgumentParser $HostArch
-  Invoke-BuildStep Build-Driver $HostArch
-  Invoke-BuildStep Build-Crypto $HostArch
-  Invoke-BuildStep Build-Collections $HostArch
-  Invoke-BuildStep Build-ASN1 $HostArch
-  Invoke-BuildStep Build-Certificates $HostArch
-  Invoke-BuildStep Build-PackageManager $HostArch
-  Invoke-BuildStep Build-Markdown $HostArch
-  Invoke-BuildStep Build-Format $HostArch
-  Invoke-BuildStep Build-IndexStoreDB $HostArch
-  Invoke-BuildStep Build-SourceKitLSP $HostArch
-}
-
-Install-HostToolchain
-
-if (-not $SkipBuild -and -not $IsCrossCompiling) {
-  Invoke-BuildStep Build-Inspect $HostArch
-  Invoke-BuildStep Build-DocC $HostArch
-}
-
-if (-not $SkipPackaging) {
-  Invoke-BuildStep Build-Installer $HostArch
-}
-
-if ($Stage) {
-  Stage-BuildArtifacts $HostArch
-}
-
-if (-not $IsCrossCompiling) {
-  if ($Test -ne $null -and (Compare-Object $Test @("clang", "lld", "lldb", "llvm", "swift") -PassThru -IncludeEqual -ExcludeDifferent) -ne $null) {
-    $Tests = @{
-      "-TestClang" = $Test -contains "clang";
-      "-TestLLD" = $Test -contains "lld";
-      "-TestLLDB" = $Test -contains "lldb";
-      "-TestLLVM" = $Test -contains "llvm";
-      "-TestSwift" = $Test -contains "swift";
-    }
-    Build-Compilers $HostArch @Tests
-  }
-
-  if ($Test -contains "dispatch") {
-    Build-Dispatch Windows $HostArch -Test
-  }
-  if ($Test -contains "foundation") {
-    Build-Foundation Windows $HostArch -Test
-  }
-  if ($Test -contains "xctest") {
-    Build-XCTest Windows $HostArch -Test
-  }
-  if ($Test -contains "llbuild") { Build-LLBuild $HostArch -Test }
-  if ($Test -contains "swiftpm") { Test-PackageManager $HostArch }
-}
-
-# Custom exception printing for more detailed exception information
-} catch {
-  function Write-ErrorLines($Text, $Indent = 0) {
-    $IndentString = " " * $Indent
-    $Text.Replace("`r", "") -split "`n" | ForEach-Object {
-      Write-Host "$IndentString$_" -ForegroundColor Red
-    }
-  }
-
-  Write-ErrorLines "Error: $_"
-  Write-ErrorLines $_.ScriptStackTrace -Indent 4
-
-  # Walk the .NET inner exception chain to print all messages and stack traces
-  $Exception = $_.Exception
-  $Indent = 2
-  while ($Exception -is [Exception]) {
-      Write-ErrorLines "From $($Exception.GetType().FullName): $($Exception.Message)" -Indent $Indent
-      if ($null -ne $Exception.StackTrace) {
-          # .NET exceptions stack traces are already indented by 3 spaces
-          Write-ErrorLines $Exception.StackTrace -Indent ($Indent + 1)
-      }
-      $Exception = $Exception.InnerException
-      $Indent += 2
-  }
-
-  exit 1
-} finally {
-  if ($Summary) {
-    $TimingData | Select Platform,Arch,Checkout,"Elapsed Time" | Sort -Descending -Property "Elapsed Time" | Format-Table -AutoSize
-  }
-}
+# try {
+#
+# if (-not $SkipBuild) {
+#   Fetch-Dependencies
+# }
+#
+# if (-not $SkipBuild) {
+#   Invoke-BuildStep Build-CMark $BuildArch
+#   Invoke-BuildStep Build-BuildTools $BuildArch
+#   if ($IsCrossCompiling) {
+     Invoke-BuildStep Build-Compilers -Build $BuildArch -TestLLDB
+#   }
+#
+#   Invoke-BuildStep Build-CMark $HostArch
+#   Invoke-BuildStep Build-Compilers $HostArch
+# }
+#
+# if ($Clean) {
+#   10..27 | % { Remove-Item -Force -Recurse "$BinaryCache\$_" -ErrorAction Ignore }
+#   foreach ($Arch in $WindowsSDKArchs) {
+#     0..3 | % { Remove-Item -Force -Recurse "$BinaryCache\$($Arch.BuildID + $_)" -ErrorAction Ignore }
+#   }
+# }
+#
+# if (-not $SkipBuild) {
+#   foreach ($Arch in $WindowsSDKArchs) {
+#     Invoke-BuildStep Build-ZLib Windows $Arch
+#     Invoke-BuildStep Build-XML2 Windows $Arch
+#     Invoke-BuildStep Build-CURL Windows $Arch
+#     Invoke-BuildStep Build-ICU Windows $Arch
+#     Invoke-BuildStep Build-LLVM Windows $Arch
+#
+#     # Build platform: SDK, Redist and XCTest
+#     Invoke-BuildStep Build-Runtime Windows $Arch
+#     Invoke-BuildStep Build-Dispatch Windows $Arch
+#     Invoke-BuildStep Build-Foundation Windows $Arch
+#     Invoke-BuildStep Build-XCTest Windows $Arch
+#   }
+#
+#    foreach ($Arch in $AndroidSDKArchs) {
+#      Invoke-BuildStep Build-ZLib Android $Arch
+#      Invoke-BuildStep Build-XML2 Android $Arch
+#      Invoke-BuildStep Build-CURL Android $Arch
+#      Invoke-BuildStep Build-ICU Android $Arch
+#      Invoke-BuildStep Build-LLVM Android $Arch
+#
+#      # Build platform: SDK, Redist and XCTest
+#      Invoke-BuildStep Build-Runtime Android $Arch
+#      Invoke-BuildStep Build-Dispatch Android $Arch
+#      Invoke-BuildStep Build-Foundation Android $Arch
+#      Invoke-BuildStep Build-XCTest Android $Arch
+#    }
+# }
+#
+# if (-not $ToBatch) {
+#   if ($HostArch -in $WindowsSDKArchs) {
+#     $RuntimeInstallRoot = [IO.Path]::Combine((Get-InstallDir $HostArch), "Runtimes", $ProductVersion)
+#
+#     Remove-Item -Force -Recurse $RuntimeInstallRoot -ErrorAction Ignore
+#     Copy-Directory "$($HostArch.SDKInstallRoot)\usr\bin" "$RuntimeInstallRoot\usr"
+#   }
+#
+#   Remove-Item -Force -Recurse ([IO.Path]::Combine((Get-InstallDir $HostArch), "Platforms")) -ErrorAction Ignore
+#   foreach ($Arch in $WindowsSDKArchs) {
+#     Install-Platform Windows $Arch
+#   }
+#
+#   foreach ($Arch in $AndroidSDKArchs) {
+#     Install-Platform Android $Arch
+#   }
+# }
+#
+# if (-not $SkipBuild) {
+#   Invoke-BuildStep Build-SQLite $HostArch
+#   Invoke-BuildStep Build-System $HostArch
+#   Invoke-BuildStep Build-ToolsSupportCore $HostArch
+#   Invoke-BuildStep Build-LLBuild $HostArch
+#   Invoke-BuildStep Build-Yams $HostArch
+#   Invoke-BuildStep Build-ArgumentParser $HostArch
+#   Invoke-BuildStep Build-Driver $HostArch
+#   Invoke-BuildStep Build-Crypto $HostArch
+#   Invoke-BuildStep Build-Collections $HostArch
+#   Invoke-BuildStep Build-ASN1 $HostArch
+#   Invoke-BuildStep Build-Certificates $HostArch
+#   Invoke-BuildStep Build-PackageManager $HostArch
+#   Invoke-BuildStep Build-Markdown $HostArch
+#   Invoke-BuildStep Build-Format $HostArch
+#   Invoke-BuildStep Build-IndexStoreDB $HostArch
+#   Invoke-BuildStep Build-SourceKitLSP $HostArch
+# }
+#
+# Install-HostToolchain
+#
+# if (-not $SkipBuild -and -not $IsCrossCompiling) {
+#   Invoke-BuildStep Build-Inspect $HostArch
+#   Invoke-BuildStep Build-DocC $HostArch
+# }
+#
+# if (-not $SkipPackaging) {
+#   Invoke-BuildStep Build-Installer $HostArch
+# }
+#
+# if ($Stage) {
+#   Stage-BuildArtifacts $HostArch
+# }
+#
+# if (-not $IsCrossCompiling) {
+#   if ($Test -ne $null -and (Compare-Object $Test @("clang", "lld", "lldb", "llvm", "swift") -PassThru -IncludeEqual -ExcludeDifferent) -ne $null) {
+#     $Tests = @{
+#       "-TestClang" = $Test -contains "clang";
+#       "-TestLLD" = $Test -contains "lld";
+#       "-TestLLDB" = $Test -contains "lldb";
+#       "-TestLLVM" = $Test -contains "llvm";
+#       "-TestSwift" = $Test -contains "swift";
+#     }
+#     Build-Compilers $HostArch @Tests
+#   }
+#
+#   if ($Test -contains "dispatch") {
+#     Build-Dispatch Windows $HostArch -Test
+#   }
+#   if ($Test -contains "foundation") {
+#     Build-Foundation Windows $HostArch -Test
+#   }
+#   if ($Test -contains "xctest") {
+#     Build-XCTest Windows $HostArch -Test
+#   }
+#   if ($Test -contains "llbuild") { Build-LLBuild $HostArch -Test }
+#   if ($Test -contains "swiftpm") { Test-PackageManager $HostArch }
+# }
+#
+# # Custom exception printing for more detailed exception information
+# } catch {
+#   function Write-ErrorLines($Text, $Indent = 0) {
+#     $IndentString = " " * $Indent
+#     $Text.Replace("`r", "") -split "`n" | ForEach-Object {
+#       Write-Host "$IndentString$_" -ForegroundColor Red
+#     }
+#   }
+#
+#   Write-ErrorLines "Error: $_"
+#   Write-ErrorLines $_.ScriptStackTrace -Indent 4
+#
+#   # Walk the .NET inner exception chain to print all messages and stack traces
+#   $Exception = $_.Exception
+#   $Indent = 2
+#   while ($Exception -is [Exception]) {
+#       Write-ErrorLines "From $($Exception.GetType().FullName): $($Exception.Message)" -Indent $Indent
+#       if ($null -ne $Exception.StackTrace) {
+#           # .NET exceptions stack traces are already indented by 3 spaces
+#           Write-ErrorLines $Exception.StackTrace -Indent ($Indent + 1)
+#       }
+#       $Exception = $Exception.InnerException
+#       $Indent += 2
+#   }
+#
+#   exit 1
+# } finally {
+#   if ($Summary) {
+#     $TimingData | Select Platform,Arch,Checkout,"Elapsed Time" | Sort -Descending -Property "Elapsed Time" | Format-Table -AutoSize
+#   }
+# }
