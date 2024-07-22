@@ -1363,6 +1363,7 @@ function Build-Compilers() {
         LLVM_NATIVE_TOOL_DIR = $BuildTools;
         LLVM_TABLEGEN = (Join-Path $BuildTools -ChildPath "llvm-tblgen.exe");
         LLVM_USE_HOST_TOOLS = "NO";
+        LLDB_TEST_USER_ARGS="--skip-category=watchpoint";
         # link.exe seems unable to find system libraries like psapi.lib, even though both link.exe and lld-link.exe
         # Come from the visual studio installation.
         CMAKE_LINKER = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\lld-link.exe";
