@@ -1355,14 +1355,17 @@ function Build-Compilers() {
         LLVM_ENABLE_LIBEDIT = "NO";
         # Enable lld so we can use it at link time. For some reason MSVC's link.exe can't resolve system libs...
         LLVM_ENABLE_LLD = "YES";
-        # If yes (default) then llvm-project\lldb\unittests\SymbolFile\PDB\SymbolFilePDBTests.cpp is built and fails
-        # to compile. It must be broken on all windows x64 builds, given that LLVM CI doens't inlcude that platform
-        # and the DIA SDK is a windows-only feature.
+        # If yes (default) then llvm-project\lldb\unittests\SymbolFile\PDB\SymbolFilePDBTests.cpp is compiled and it fails
+        # at the moment on Windows AMD64. The DIA SDK is a windows-only feature and this fails to compile, probably because LLVM CI doesn't
+        # Include Windows amd64?
         LLVM_ENABLE_DIA_SDK = "OFF";
         LLVM_EXTERNAL_SWIFT_SOURCE_DIR = "$SourceCache\swift";
         LLVM_NATIVE_TOOL_DIR = $BuildTools;
         LLVM_TABLEGEN = (Join-Path $BuildTools -ChildPath "llvm-tblgen.exe");
         LLVM_USE_HOST_TOOLS = "NO";
+        # link.exe seems unable to find system libraries like psapi.lib, even though both link.exe and lld-link.exe
+        # Come from the visual studio installation.
+        CMAKE_LINKER = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\lld-link.exe";
         Python3_EXECUTABLE = "$python";
         Python3_INCLUDE_DIR = "$BinaryCache\Python$($Arch.CMakeName)-$PythonVersion\tools\include";
         Python3_LIBRARY = "$BinaryCache\Python$($Arch.CMakeName)-$PythonVersion\tools\libs\python39.lib";
