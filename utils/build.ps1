@@ -1336,6 +1336,7 @@ function Build-Compilers() {
         CMAKE_CXX_COMPILER_LAUNCHER = "ccache";
         # Why is this not set automatically on Windows?
         CMAKE_SHARED_LIBRARY_SUFFIX = ".dll";
+        LLDB_ENABLE_PYTHON = "YES";
         LLDB_ENFORCE_STRICT_TEST_REQUIREMENTS = "ON";
         LLDB_PYTHON_EXE_RELATIVE_PATH = "python.exe";
         LLDB_PYTHON_EXT_SUFFIX = ".pyd";
