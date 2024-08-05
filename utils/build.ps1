@@ -1072,7 +1072,19 @@ function Build-CMakeProject {
     } elseif ($UsePinnedCompilers.Contains("Swift")) {
       $env:Path = "$(Get-PinnedToolchainRuntime);${env:Path}"
     }
+
     Invoke-Program cmake.exe @cmakeGenerateArgs
+
+    # $env:LIT_XFAIL="commands/dwim-print/TestDWIMPrint.py"
+    # $env:LIT_XFAIL="Symbol/./SymbolTests.exe/TestSwiftASTContext/PluginPath;Symbol/./SymbolTests.exe/TestSwiftASTContext/ApplyWorkingDir"
+    # $env:MSVC_INSTALL_DIR="C:\Program Files\Microsoft Visual Studio\2022\Community"
+    # $env:PATH="$env:MSVC_INSTALL_DIR\DIA SDK\bin\amd64;$env:PATH"
+    # $env:PATH="$env:MSVC_INSTALL_DIR\VC\Tools\Llvm\x64\bin;$env:PATH"
+    # $env:PATH="S:\b\1\bin;$env:PATH"
+    # $env:CC="clang-cl"
+    # $env:CXX="clang-cl"
+    # ninja -C $Bin check-lldb-unit
+    # return
 
     # Build all requested targets
     foreach ($Target in $BuildTargets) {
@@ -1080,7 +1092,7 @@ function Build-CMakeProject {
         Invoke-Program cmake.exe --build $Bin
       } else {
         Invoke-Program cmake.exe --build $Bin --target $Target
-      }
+       }
     }
 
     if ("" -ne $InstallTo) {
@@ -1278,6 +1290,56 @@ function Build-Compilers() {
     [switch]$Build = $false
   )
 
+  $SkipLLDBTests=@(
+    "functionalities/inferior-crashing/TestInferiorCrashingStep.py",
+    "functionalities/inferior-crashing/recursive-inferior/TestRecursiveInferiorStep.py",
+    "functionalities/inline-stepping/TestInlineStepping.py",
+    "functionalities/breakpoint/debugbreak/TestDebugBreak.py"
+  )
+  $XFailingLLDBTests=@(
+    "commands/command/nested_alias/TestNestedAlias.py",
+    "commands/expression/entry-bp/TestExprEntryBP.py",
+    "commands/expression/nested/TestNestedExpressions.py",
+    "commands/memory/write/TestMemoryWrite.py",
+    "commands/settings/use_source_cache/TestUseSourceCache.py",
+    "functionalities/breakpoint/address_breakpoints/TestAddressBreakpoints.py",
+    "functionalities/breakpoint/auto_continue/TestBreakpointAutoContinue.py",
+    "functionalities/breakpoint/breakpoint_conditions/TestBreakpointConditions.py",
+    "functionalities/breakpoint/breakpoint_options/TestBreakpointOptions.py",
+    "functionalities/breakpoint/step_over_breakpoint/TestStepOverBreakpoint.py",
+    "functionalities/conditional_break/TestConditionalBreak.py",
+    "functionalities/memory/find/TestMemoryFind.py",
+    "lang/c/anonymous/TestAnonymous.py",
+    "lang/c/array_types/TestArrayTypes.py",
+    "lang/c/enum_types/TestEnumTypes.py",
+    "lang/c/forward/TestForwardDeclaration.py",
+    "lang/c/function_types/TestFunctionTypes.py",
+    "lang/c/non-mangled/TestCNonMangled.py",
+    "lang/c/register_variables/TestRegisterVariables.py",
+    "lang/c/set_values/TestSetValues.py",
+    "lang/c/shared_lib/TestSharedLib.py",
+    "lang/cpp/class_types/TestClassTypes.py",
+    "lang/cpp/inlines/TestInlines.py",
+    "lang/cpp/unique-types4/TestUniqueTypes4.py",
+    "python_api/compile_unit/TestCompileUnitAPI.py",
+    "python_api/thread/TestThreadAPI.py",
+    "source-manager/TestSourceManager.py",
+    "Driver/TestConvenienceVariables.test",
+    "Recognizer/verbose_trap.test",
+    "Settings/TestEchoCommands.test",
+    "Swift/MissingVFSOverlay.test",
+    "Swift/No.swiftmodule.test",
+    "Swift/ToolchainMismatch.test",
+    "Swift/global.test",
+    "Swift/runtime-initialization.test",
+    "SymbolFile/DWARF/x86/dead-code-filtering.yaml",
+    "SymbolFile/NativePDB/local-variables.cpp",
+    "SymbolFile/NativePDB/stack_unwinding01.cpp",
+    "Symbol/./SymbolTests.exe/ClangArgs/UniquingCollisionWithAddedFlags",
+    "Symbol/./SymbolTests.exe/ClangArgs/UniquingCollisionWithExistingFlags",
+    "Symbol/./SymbolTests.exe/TestSwiftASTContext/ApplyWorkingDir",
+    "Symbol/./SymbolTests.exe/TestSwiftASTContext/PluginPath"
+  )
   Isolate-EnvVars {
     $CompilersBinaryCache = if ($Build) {
       Get-BuildProjectBinaryCache Compilers
@@ -1336,15 +1398,19 @@ function Build-Compilers() {
         CMAKE_CXX_COMPILER_LAUNCHER = "ccache";
         # Why is this not set automatically on Windows?
         CMAKE_SHARED_LIBRARY_SUFFIX = ".dll";
+        # TODO(kendal): Delete this
+        CMAKE_LINKER = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\lld-link.exe";
         LLDB_ENABLE_PYTHON = "YES";
         LLDB_ENFORCE_STRICT_TEST_REQUIREMENTS = "ON";
         LLDB_PYTHON_EXE_RELATIVE_PATH = "python.exe";
         LLDB_PYTHON_EXT_SUFFIX = ".pyd";
+        LLDB_TEST_COMMON_ARGS="-u;CXXFLAGS;-u;CFLAGS;--inferior-env;DYLD_LIBRARY_PATH=S:/b/1/./lib/swift/windows:S:/b/1/./lib/lldb/clang/lib/x86_64-unknown-windows-msvc;--inferior-env;LD_LIBRARY_PATH=S:/b/1/./lib/swift/AMD64;--inferior-env;SIMCTL_CHILD_DYLD_LIBRARY_PATH=S:/b/1/./lib/swift/windows;--env;OBJCOPY=S:/b/1/./bin/llvm-objcopy.exe"
         LLDB_PYTHON_RELATIVE_PATH = "lib/site-packages";
         LLDB_TABLEGEN = (Join-Path -Path $BuildTools -ChildPath "lldb-tblgen.exe");
         LLVM_CONFIG_PATH = (Join-Path -Path $BuildTools -ChildPath "llvm-config.exe");
         # We need clang because some swift targets depend on clang-resource-headers 
-        LLVM_ENABLE_PROJECTS = "clang;lldb;lld";
+        LLVM_ENABLE_PROJECTS = "llvm;clang;lldb;lld";
+        LLVM_LIT_ARGS="-v --no-gtest-sharding";
         # Unset LLVM_DISTRIBUTION_COMPONENTS to avoid building a bunch of things we don't need for testing.
         # This change shouldn't be sent upstream and is only useful during test bringup and debugging.
         LLVM_DISTRIBUTION_COMPONENTS = "";
@@ -1355,18 +1421,15 @@ function Build-Compilers() {
         LLVM_ENABLE_LIBEDIT = "NO";
         # Enable lld so we can use it at link time. For some reason MSVC's link.exe can't resolve system libs...
         LLVM_ENABLE_LLD = "YES";
-        # If yes (default) then llvm-project\lldb\unittests\SymbolFile\PDB\SymbolFilePDBTests.cpp is compiled and it fails
-        # at the moment on Windows AMD64. The DIA SDK is a windows-only feature and this fails to compile, probably because LLVM CI doesn't
-        # Include Windows amd64?
-        LLVM_ENABLE_DIA_SDK = "OFF";
+        LLVM_ENABLE_DIA_SDK = "ON";
         LLVM_EXTERNAL_SWIFT_SOURCE_DIR = "$SourceCache\swift";
         LLVM_NATIVE_TOOL_DIR = $BuildTools;
         LLVM_TABLEGEN = (Join-Path $BuildTools -ChildPath "llvm-tblgen.exe");
         LLVM_USE_HOST_TOOLS = "NO";
+        # These get passed to dotest.py
         LLDB_TEST_USER_ARGS="--skip-category=watchpoint";
         # link.exe seems unable to find system libraries like psapi.lib, even though both link.exe and lld-link.exe
         # Come from the visual studio installation.
-        CMAKE_LINKER = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\Llvm\x64\bin\lld-link.exe";
         Python3_EXECUTABLE = "$python";
         Python3_INCLUDE_DIR = "$BinaryCache\Python$($Arch.CMakeName)-$PythonVersion\tools\include";
         Python3_LIBRARY = "$BinaryCache\Python$($Arch.CMakeName)-$PythonVersion\tools\libs\python39.lib";
@@ -2334,165 +2397,165 @@ function Stage-BuildArtifacts($Arch) {
 }
 
 #-------------------------------------------------------------------
-# try {
-#
-# if (-not $SkipBuild) {
-#   Fetch-Dependencies
-# }
-#
-# if (-not $SkipBuild) {
-#   Invoke-BuildStep Build-CMark $BuildArch
-#   Invoke-BuildStep Build-BuildTools $BuildArch
-#   if ($IsCrossCompiling) {
-     Invoke-BuildStep Build-Compilers -Build $BuildArch -TestLLDB
-#   }
-#
-#   Invoke-BuildStep Build-CMark $HostArch
-#   Invoke-BuildStep Build-Compilers $HostArch
-# }
-#
-# if ($Clean) {
-#   10..27 | % { Remove-Item -Force -Recurse "$BinaryCache\$_" -ErrorAction Ignore }
-#   foreach ($Arch in $WindowsSDKArchs) {
-#     0..3 | % { Remove-Item -Force -Recurse "$BinaryCache\$($Arch.BuildID + $_)" -ErrorAction Ignore }
-#   }
-# }
-#
-# if (-not $SkipBuild) {
-#   foreach ($Arch in $WindowsSDKArchs) {
-#     Invoke-BuildStep Build-ZLib Windows $Arch
-#     Invoke-BuildStep Build-XML2 Windows $Arch
-#     Invoke-BuildStep Build-CURL Windows $Arch
-#     Invoke-BuildStep Build-ICU Windows $Arch
-#     Invoke-BuildStep Build-LLVM Windows $Arch
-#
-#     # Build platform: SDK, Redist and XCTest
-#     Invoke-BuildStep Build-Runtime Windows $Arch
-#     Invoke-BuildStep Build-Dispatch Windows $Arch
-#     Invoke-BuildStep Build-Foundation Windows $Arch
-#     Invoke-BuildStep Build-XCTest Windows $Arch
-#   }
-#
-#    foreach ($Arch in $AndroidSDKArchs) {
-#      Invoke-BuildStep Build-ZLib Android $Arch
-#      Invoke-BuildStep Build-XML2 Android $Arch
-#      Invoke-BuildStep Build-CURL Android $Arch
-#      Invoke-BuildStep Build-ICU Android $Arch
-#      Invoke-BuildStep Build-LLVM Android $Arch
-#
-#      # Build platform: SDK, Redist and XCTest
-#      Invoke-BuildStep Build-Runtime Android $Arch
-#      Invoke-BuildStep Build-Dispatch Android $Arch
-#      Invoke-BuildStep Build-Foundation Android $Arch
-#      Invoke-BuildStep Build-XCTest Android $Arch
-#    }
-# }
-#
-# if (-not $ToBatch) {
-#   if ($HostArch -in $WindowsSDKArchs) {
-#     $RuntimeInstallRoot = [IO.Path]::Combine((Get-InstallDir $HostArch), "Runtimes", $ProductVersion)
-#
-#     Remove-Item -Force -Recurse $RuntimeInstallRoot -ErrorAction Ignore
-#     Copy-Directory "$($HostArch.SDKInstallRoot)\usr\bin" "$RuntimeInstallRoot\usr"
-#   }
-#
-#   Remove-Item -Force -Recurse ([IO.Path]::Combine((Get-InstallDir $HostArch), "Platforms")) -ErrorAction Ignore
-#   foreach ($Arch in $WindowsSDKArchs) {
-#     Install-Platform Windows $Arch
-#   }
-#
-#   foreach ($Arch in $AndroidSDKArchs) {
-#     Install-Platform Android $Arch
-#   }
-# }
-#
-# if (-not $SkipBuild) {
-#   Invoke-BuildStep Build-SQLite $HostArch
-#   Invoke-BuildStep Build-System $HostArch
-#   Invoke-BuildStep Build-ToolsSupportCore $HostArch
-#   Invoke-BuildStep Build-LLBuild $HostArch
-#   Invoke-BuildStep Build-Yams $HostArch
-#   Invoke-BuildStep Build-ArgumentParser $HostArch
-#   Invoke-BuildStep Build-Driver $HostArch
-#   Invoke-BuildStep Build-Crypto $HostArch
-#   Invoke-BuildStep Build-Collections $HostArch
-#   Invoke-BuildStep Build-ASN1 $HostArch
-#   Invoke-BuildStep Build-Certificates $HostArch
-#   Invoke-BuildStep Build-PackageManager $HostArch
-#   Invoke-BuildStep Build-Markdown $HostArch
-#   Invoke-BuildStep Build-Format $HostArch
-#   Invoke-BuildStep Build-IndexStoreDB $HostArch
-#   Invoke-BuildStep Build-SourceKitLSP $HostArch
-# }
-#
-# Install-HostToolchain
-#
-# if (-not $SkipBuild -and -not $IsCrossCompiling) {
-#   Invoke-BuildStep Build-Inspect $HostArch
-#   Invoke-BuildStep Build-DocC $HostArch
-# }
-#
-# if (-not $SkipPackaging) {
-#   Invoke-BuildStep Build-Installer $HostArch
-# }
-#
-# if ($Stage) {
-#   Stage-BuildArtifacts $HostArch
-# }
-#
-# if (-not $IsCrossCompiling) {
-#   if ($Test -ne $null -and (Compare-Object $Test @("clang", "lld", "lldb", "llvm", "swift") -PassThru -IncludeEqual -ExcludeDifferent) -ne $null) {
-#     $Tests = @{
-#       "-TestClang" = $Test -contains "clang";
-#       "-TestLLD" = $Test -contains "lld";
-#       "-TestLLDB" = $Test -contains "lldb";
-#       "-TestLLVM" = $Test -contains "llvm";
-#       "-TestSwift" = $Test -contains "swift";
-#     }
-#     Build-Compilers $HostArch @Tests
-#   }
-#
-#   if ($Test -contains "dispatch") {
-#     Build-Dispatch Windows $HostArch -Test
-#   }
-#   if ($Test -contains "foundation") {
-#     Build-Foundation Windows $HostArch -Test
-#   }
-#   if ($Test -contains "xctest") {
-#     Build-XCTest Windows $HostArch -Test
-#   }
-#   if ($Test -contains "llbuild") { Build-LLBuild $HostArch -Test }
-#   if ($Test -contains "swiftpm") { Test-PackageManager $HostArch }
-# }
-#
-# # Custom exception printing for more detailed exception information
-# } catch {
-#   function Write-ErrorLines($Text, $Indent = 0) {
-#     $IndentString = " " * $Indent
-#     $Text.Replace("`r", "") -split "`n" | ForEach-Object {
-#       Write-Host "$IndentString$_" -ForegroundColor Red
-#     }
-#   }
-#
-#   Write-ErrorLines "Error: $_"
-#   Write-ErrorLines $_.ScriptStackTrace -Indent 4
-#
-#   # Walk the .NET inner exception chain to print all messages and stack traces
-#   $Exception = $_.Exception
-#   $Indent = 2
-#   while ($Exception -is [Exception]) {
-#       Write-ErrorLines "From $($Exception.GetType().FullName): $($Exception.Message)" -Indent $Indent
-#       if ($null -ne $Exception.StackTrace) {
-#           # .NET exceptions stack traces are already indented by 3 spaces
-#           Write-ErrorLines $Exception.StackTrace -Indent ($Indent + 1)
-#       }
-#       $Exception = $Exception.InnerException
-#       $Indent += 2
-#   }
-#
-#   exit 1
-# } finally {
-#   if ($Summary) {
-#     $TimingData | Select Platform,Arch,Checkout,"Elapsed Time" | Sort -Descending -Property "Elapsed Time" | Format-Table -AutoSize
-#   }
-# }
+try {
+   if (-not $SkipBuild) {
+     Fetch-Dependencies
+   }
+
+   if (-not $SkipBuild) {
+     Invoke-BuildStep Build-CMark $BuildArch
+     Invoke-BuildStep Build-BuildTools $BuildArch
+   if ($IsCrossCompiling) {
+     Invoke-BuildStep Build-Compilers -Build $BuildArch
+   }
+
+   Invoke-BuildStep Build-CMark $HostArch
+   Invoke-BuildStep Build-Compilers $HostArch
+ }
+ 
+
+if ($Clean) {
+  10..27 | % { Remove-Item -Force -Recurse "$BinaryCache\$_" -ErrorAction Ignore }
+  foreach ($Arch in $WindowsSDKArchs) {
+    0..3 | % { Remove-Item -Force -Recurse "$BinaryCache\$($Arch.BuildID + $_)" -ErrorAction Ignore }
+  }
+}
+
+if (-not $SkipBuild) {
+  foreach ($Arch in $WindowsSDKArchs) {
+    Invoke-BuildStep Build-ZLib Windows $Arch
+    Invoke-BuildStep Build-XML2 Windows $Arch
+    Invoke-BuildStep Build-CURL Windows $Arch
+    Invoke-BuildStep Build-ICU Windows $Arch
+    Invoke-BuildStep Build-LLVM Windows $Arch
+
+    # Build platform: SDK, Redist and XCTest
+    Invoke-BuildStep Build-Runtime Windows $Arch
+    Invoke-BuildStep Build-Dispatch Windows $Arch
+    Invoke-BuildStep Build-Foundation Windows $Arch
+    Invoke-BuildStep Build-XCTest Windows $Arch
+  }
+
+   foreach ($Arch in $AndroidSDKArchs) {
+     Invoke-BuildStep Build-ZLib Android $Arch
+     Invoke-BuildStep Build-XML2 Android $Arch
+     Invoke-BuildStep Build-CURL Android $Arch
+     Invoke-BuildStep Build-ICU Android $Arch
+     Invoke-BuildStep Build-LLVM Android $Arch
+
+     # Build platform: SDK, Redist and XCTest
+     Invoke-BuildStep Build-Runtime Android $Arch
+     Invoke-BuildStep Build-Dispatch Android $Arch
+     Invoke-BuildStep Build-Foundation Android $Arch
+     Invoke-BuildStep Build-XCTest Android $Arch
+   }
+}
+
+if (-not $ToBatch) {
+  if ($HostArch -in $WindowsSDKArchs) {
+    $RuntimeInstallRoot = [IO.Path]::Combine((Get-InstallDir $HostArch), "Runtimes", $ProductVersion)
+
+    Remove-Item -Force -Recurse $RuntimeInstallRoot -ErrorAction Ignore
+    Copy-Directory "$($HostArch.SDKInstallRoot)\usr\bin" "$RuntimeInstallRoot\usr"
+  }
+
+  Remove-Item -Force -Recurse ([IO.Path]::Combine((Get-InstallDir $HostArch), "Platforms")) -ErrorAction Ignore
+  foreach ($Arch in $WindowsSDKArchs) {
+    Install-Platform Windows $Arch
+  }
+
+  foreach ($Arch in $AndroidSDKArchs) {
+    Install-Platform Android $Arch
+  }
+}
+
+if (-not $SkipBuild) {
+  Invoke-BuildStep Build-SQLite $HostArch
+  Invoke-BuildStep Build-System $HostArch
+  Invoke-BuildStep Build-ToolsSupportCore $HostArch
+  Invoke-BuildStep Build-LLBuild $HostArch
+  Invoke-BuildStep Build-Yams $HostArch
+  Invoke-BuildStep Build-ArgumentParser $HostArch
+  Invoke-BuildStep Build-Driver $HostArch
+  Invoke-BuildStep Build-Crypto $HostArch
+  Invoke-BuildStep Build-Collections $HostArch
+  Invoke-BuildStep Build-ASN1 $HostArch
+  Invoke-BuildStep Build-Certificates $HostArch
+  Invoke-BuildStep Build-PackageManager $HostArch
+  Invoke-BuildStep Build-Markdown $HostArch
+  Invoke-BuildStep Build-Format $HostArch
+  Invoke-BuildStep Build-IndexStoreDB $HostArch
+  Invoke-BuildStep Build-SourceKitLSP $HostArch
+}
+
+Install-HostToolchain
+
+if (-not $SkipBuild -and -not $IsCrossCompiling) {
+  Invoke-BuildStep Build-Inspect $HostArch
+  Invoke-BuildStep Build-DocC $HostArch
+}
+
+if (-not $SkipPackaging) {
+  Invoke-BuildStep Build-Installer $HostArch
+}
+
+if ($Stage) {
+  Stage-BuildArtifacts $HostArch
+}
+
+if (-not $IsCrossCompiling) {
+  if ($Test -ne $null -and (Compare-Object $Test @("clang", "lld", "lldb", "llvm", "swift") -PassThru -IncludeEqual -ExcludeDifferent) -ne $null) {
+    $Tests = @{
+      "-TestClang" = $Test -contains "clang";
+      "-TestLLD" = $Test -contains "lld";
+      "-TestLLDB" = $Test -contains "lldb";
+      "-TestLLVM" = $Test -contains "llvm";
+      "-TestSwift" = $Test -contains "swift";
+    }
+    Build-Compilers $HostArch @Tests
+  }
+
+  if ($Test -contains "dispatch") {
+    Build-Dispatch Windows $HostArch -Test
+  }
+  if ($Test -contains "foundation") {
+    Build-Foundation Windows $HostArch -Test
+  }
+  if ($Test -contains "xctest") {
+    Build-XCTest Windows $HostArch -Test
+  }
+  if ($Test -contains "llbuild") { Build-LLBuild $HostArch -Test }
+  if ($Test -contains "swiftpm") { Test-PackageManager $HostArch }
+}
+
+# Custom exception printing for more detailed exception information
+} catch {
+  function Write-ErrorLines($Text, $Indent = 0) {
+    $IndentString = " " * $Indent
+    $Text.Replace("`r", "") -split "`n" | ForEach-Object {
+      Write-Host "$IndentString$_" -ForegroundColor Red
+    }
+  }
+
+  Write-ErrorLines "Error: $_"
+  Write-ErrorLines $_.ScriptStackTrace -Indent 4
+
+  # Walk the .NET inner exception chain to print all messages and stack traces
+  $Exception = $_.Exception
+  $Indent = 2
+  while ($Exception -is [Exception]) {
+      Write-ErrorLines "From $($Exception.GetType().FullName): $($Exception.Message)" -Indent $Indent
+      if ($null -ne $Exception.StackTrace) {
+          # .NET exceptions stack traces are already indented by 3 spaces
+          Write-ErrorLines $Exception.StackTrace -Indent ($Indent + 1)
+      }
+      $Exception = $Exception.InnerException
+      $Indent += 2
+  }
+
+  exit 1
+} finally {
+  if ($Summary) {
+    $TimingData | Select Platform,Arch,Checkout,"Elapsed Time" | Sort -Descending -Property "Elapsed Time" | Format-Table -AutoSize
+  }
+}
